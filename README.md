@@ -13,7 +13,7 @@ Test screenshot:
 
 <img src='doc/screenshot.png' width=600>
 
-There's also an iverilog and gtkwave-based simulation. If you are interested in all the signaling/timing details about DDR3. See [simulation instructions](iverilog/README.md).
+There's also an iverilog and gtkwave-based simulation, if you are interested in all the signaling/timing details about DDR3. See [simulation instructions](simulation/README.md).
 
 Build instructions,
 * Gowin IDE 1.8.0.7
