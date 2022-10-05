@@ -31,11 +31,14 @@ module ddr3_top
     output uart_txp
 );
 
-reg start;      // press d7 to start the system
-always @(posedge clk) begin
-    if (d7) start <= 1;
-    if (~sys_resetn) start <= 0;
-end
+reg start = 1'b1;      
+`ifdef D7_TO_START
+    // switch d7 on to start running
+    always @(posedge clk) begin
+        if (d7) start <= 1;
+        if (~sys_resetn) start <= 0;
+    end
+`endif
 
 reg rd, wr, refresh;
 reg [25:0] addr;
@@ -45,8 +48,9 @@ wire [15:0] dout;
 
 localparam FREQ=99_800_000;
 
-localparam [25:0] START_ADDR = 24'h00;
-localparam [25:0] TOTAL_SIZE = 8*1024*1024;       // Test 16MB
+localparam [25:0] START_ADDR = 26'h0;
+localparam [25:0] TOTAL_SIZE = 8*1024*1024;       // Test 8MB
+//localparam [25:0] TOTAL_SIZE = 32*1024*1024;       // Test 64MB
 
 Gowin_rPLL pll(
     .clkout(clk_x4),    // 398.25 Mhz
@@ -149,6 +153,7 @@ assign led2 = ~wstep;       // for write leveling
 //assign led2 = ~{read_calib_done, 2'b0, rclkpos[1:0], rclksel[2:0]};   // for read calib
 
 typedef logic [7:0] BYTE;
+typedef logic [25:0] ADDR;
 
 always @(posedge clk) begin
     wr <= 0; rd <= 0; refresh <= 0; refresh_executed <= 0;
@@ -158,7 +163,7 @@ always @(posedge clk) begin
 
     case (state)
         // wait for busy==0 (controller initialization done)
-        INIT: if (lock && sys_resetn && !busy) begin
+        INIT: if (lock && sys_resetn && !busy && start) begin
             state <= PRINT_STATUS;
             tick_counter <= 20'd100_000;
         end
@@ -223,14 +228,15 @@ always @(posedge clk) begin
                 addr[15:0] <= addr[15:0] + 16'd1;
             end
         end
-        READ_DONE: if (tick) begin
+        READ_DONE: begin
             state <= WIPE;
+            work_counter <= 0;
+            addr <= START_ADDR;
         end
 
         // Part 2 - bulk write/read test
         WIPE: begin
-            if (addr == START_ADDR + TOTAL_SIZE) begin
-                tick_counter <= 20'd100_000;        // wait 1ms
+            if (addr == ADDR'(START_ADDR + TOTAL_SIZE)) begin
                 work_counter <= 0;
                 addr <= START_ADDR;
                 state <= WRITE_BLOCK;
@@ -257,16 +263,15 @@ always @(posedge clk) begin
 
         WRITE_BLOCK: begin
             // write some data
-            if (addr == START_ADDR + TOTAL_SIZE) begin
+            if (addr == ADDR'(START_ADDR + TOTAL_SIZE)) begin
                 state <= VERIFY_BLOCK;
-                tick_counter <= 20'd100_000;        // wait 1ms
                 work_counter <= 0;
                 addr <= START_ADDR;
             end else begin
                 if (work_counter == 0) begin
                     if (!refresh_needed) begin
                         wr <= 1'b1;
-                        din <= addr[15:0] ^ 16'd59;
+                        din <= addr[15:0] ^ {6'b0, addr[25:16]} ^ 16'd59;
                         refresh_cycle <= 0;
                     end else begin
                         refresh <= 1'b1;
@@ -284,7 +289,7 @@ always @(posedge clk) begin
         end
 
         VERIFY_BLOCK: begin
-            if (addr == START_ADDR + TOTAL_SIZE) begin
+            if (addr == ADDR'(START_ADDR + TOTAL_SIZE)) begin
                 end_state <= state;
                 state <= FINISH;
             end else begin
@@ -302,10 +307,10 @@ always @(posedge clk) begin
                     end
                 end else if (data_ready) begin
                     // verify result
-                    expected <= addr[15:0] ^ 16'd59;
+                    expected <= addr[15:0] ^ {6'b0, addr[25:16]} ^ 16'd59;
                     actual <= dout;
                     actual128 <= dout128;
-                    if (dout[7:0] != BYTE'(addr ^ 16'd59)) begin       // only test lower byte
+                    if (dout[7:0] != BYTE'(addr ^ {6'b0, addr[25:16]} ^ 16'd59)) begin       // only test lower byte
                         error_bit <= 1'b1;
                         end_state <= state;
                         state <= FINISH;
@@ -401,7 +406,7 @@ always@(posedge clk)begin
     if (print_stat != 0 && print_stat == print_stat_p && print_state == PRINT_IDLE_STATE) begin
         case (print_stat)
         8'd1: `print("\nFinal address=", STR);
-        8'd2: `print(addr[23:0], 3);
+        8'd2: `print({6'b0, addr[25:0]}, 4);
         8'd3: `print("\nError=", STR);
         8'd4: `print({7'b0, error_bit}, 1);
         8'd5: `print("\nExpected=", STR);

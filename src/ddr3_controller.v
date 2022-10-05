@@ -221,7 +221,7 @@ localparam WLEVEL_COUNT=2;
 localparam RCALIB_COUNT=2;
 `else
 localparam WLEVEL_COUNT=1;          // test this many times before a wstep passes write leveling
-localparam RCALIB_COUNT=3;          // test this many times before rclkpos/rclksel passes read calib
+localparam RCALIB_COUNT=8;          // test this many times before rclkpos/rclksel passes read calib
 `endif
 
 //
@@ -337,6 +337,7 @@ always @(posedge pclk) begin
 // busy  ________________________________/                                                                                               \______
         {READ, FIVEB'(RCD/4)}: begin              // 1       
             {nRAS[RCD%4], nCAS[RCD%4], nWE[RCD%4]} <= CMD_Read;     // 101
+            BA[RCD%4] <= addr[ROW_WIDTH+COL_WIDTH+BANK_WIDTH-1 : ROW_WIDTH+COL_WIDTH];    // bank id
             A[RCD%4][12] <= 1'b1;                   // BL8 burst length
             A[RCD%4][10] <= 1'b1;                   // set auto precharge
             A[RCD%4][9:0] <= addr[COL_WIDTH-1:0];   // column address
@@ -365,6 +366,7 @@ always @(posedge pclk) begin
 
         {WRITE, FIVEB'(RCD/4)}: begin             
             {nRAS[RCD%4], nCAS[RCD%4], nWE[RCD%4]} <= CMD_Write;    // 100
+            BA[RCD%4] <= addr[ROW_WIDTH+COL_WIDTH+BANK_WIDTH-1 : ROW_WIDTH+COL_WIDTH];    // bank id
             A[RCD%4][10] <= 1'b1;                           // set auto precharge
             A[RCD%4][9:0] <= addr[COL_WIDTH-1:0];           // column address
             A[RCD%4][12] <= 1'b0;                           // BC4 burst length
