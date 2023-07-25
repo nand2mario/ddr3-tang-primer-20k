@@ -1,9 +1,9 @@
 
 # Simple low-latency DDR3 PHY controller for Tang Primer 20K
 
-This is a DDR3 controller for GW2A / Tang Primer 20K. Most memory functions are implemented. But there are still metastability in the calibration process and maybe other places. So consider this highly EXPERIMENTAL.
+This is a DDR3 controller for GW2A / Tang Primer 20K. It was designed for [NESTang](https://github.com/nand2mario/nestang) and should hopefully be useful for other projects.
 
-Unlike more portable designs, we use Gowin OSER8_MEM/DQS primitives for running at higher speeds (DDR3-800). We are aiming mostly at low-latency use cases like emulators (initially written for [NESTang](https://github.com/nand2mario/nestang)). The achieved read latency is about 90ns. The interface is single 16-bit word based and uses no bursting. For more predictable behavior, the controller also exposes a *refresh* input for executing auto-refreshes, avoiding the longer latencies introduced by controller-initiated refreshes. Resource usage is 1377 logic elements (6% on GW2A-18C).
+Unlike more portable designs, we use Gowin OSER8_MEM/DQS primitives for running at higher speeds (DDR3-800). We are aiming mostly at low-latency use cases like FPGA gaming. The achieved read latency is about 90ns. The interface is single 16-bit word based and uses no bursting. For more predictable behavior, the controller also exposes a *refresh* input for executing auto-refreshes, avoiding the longer latencies introduced by controller-initiated refreshes. Resource usage is 1377 logic elements (6% on GW2A-18C).
 
 DDR3 requires a fair amount of setting-ups to function properly. In particular, it needs dynamic adjustments to clock timings to make reads/writes more stable. Here are the implemented mechanisms: ZQ calibration, writing leveling, read calibration and dynamic ODT. 
 
